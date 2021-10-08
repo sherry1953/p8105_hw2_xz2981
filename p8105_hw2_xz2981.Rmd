@@ -1,0 +1,191 @@
+---
+title: "p8105_hw2_xz2981"
+author: "Xinyan Zhou"
+date: "2021/10/4"
+output: github_document
+---
+
+```{r}
+library(tidyverse)
+library(readxl)
+```
+
+
+# Problem 1 
+
+## Read and clean the Mr. Trash Wheel sheet
+
+```{r warning=FALSE}
+p1_a <- 
+  read_excel("./data/Trash-Wheel-Collection-Totals-7-2020-2.xlsx", 
+            sheet = "Mr. Trash Wheel", range = "A2:N535") %>%
+  janitor::clean_names() %>%
+  filter(dumpster > 0) %>%
+  mutate(sports_balls = round(sports_balls, digits = 0))
+
+p1_a_2019 <-  filter(p1_a,year == 2019)
+```
+
+### Data description
+The dataset contains `r nrow(p1_a)` observations of `r ncol(p1_a)` variables, and key variables include dumpster, month, year, date, 
+weight_tons,and homes_powered.
+ 
+The median number of sports balls in a dumpster in 2019 is 
+`r round(median(pull(p1_a_2019,sports_balls), na.rm = TRUE))`.
+
+## Read and clean precipitation data for 2018 and 2019
+
+```{r}
+p1_b_2018 <-
+  read_excel("./data/Trash-Wheel-Collection-Totals-7-2020-2.xlsx",
+             sheet = "2018 Precipitation",range = "A2:B14") %>%
+  janitor::clean_names() %>%
+  drop_na() %>%
+  mutate(year = 2018)
+```
+
+```{r}
+p1_b_2019 <-
+  read_excel("./data/Trash-Wheel-Collection-Totals-7-2020-2.xlsx",
+             sheet = "2019 Precipitation",range = "A2:B14") %>%
+  janitor::clean_names() %>%
+  drop_na() %>%
+  mutate(year = 2019)
+```
+
+```{r}
+p1_b_all <-
+  bind_rows(p1_b_2018,p1_b_2019) %>%
+  mutate(month = month.name[month])
+```
+
+### Data description
+The dataset contains `r nrow(p1_b_all)` observations of `r ncol(p1_b_all)` variables, and key variables include month, total, year.
+ 
+The total precipitation in 2018 is `r (sum(pull(p1_b_2018,total)))`.
+
+# Problem 2
+
+## Clean the data in pols-month.csv
+
+```{r}
+p2_a <-
+  read_csv(file = "./data/pols-month.csv") %>%
+  janitor::clean_names() %>%
+  separate(mon,c("year","month","day"),sep = "-",convert = TRUE) %>%
+  mutate(month = month.name[month], president = "0") %>%
+  mutate(president = replace(president, prez_gop == 1, "gop")) %>%
+  mutate(president = replace(president, prez_dem == 1, "dem")) %>%
+  select(-prez_gop, -prez_dem, -day)
+```
+
+## Clean the data in snp.csv
+
+```{r}
+p2_b <-
+  read_csv(file = "./data/snp.csv") %>%
+  janitor::clean_names() %>%
+  separate(date,c("month","day","year"),sep = "/",convert = TRUE) %>%
+  mutate(month = month.name[month]) %>%
+  mutate(year = if_else(year > 20, year + 1900, year + 2000)) %>%
+  arrange(year,month) %>% 
+  select(year,month,close)
+```
+
+## Tidy the unemployment data
+
+```{r}
+p2_c <-
+  read_csv(file = "./data/unemployment.csv") %>%
+  rename("1" = Jan,"2" = Feb, "3" = Mar, "4" =  Apr, "5" = May, 
+         "6" = Jun, "7" = Jul, "8" = Aug, "9" = Sep, "10" = Oct,
+         "11" = Nov, "12" = Dec) %>%
+  pivot_longer(
+    "1":"12",
+    names_to = "month",
+    values_to = "unemployment") %>%
+  mutate(month = as.numeric(month)) %>%
+  mutate(month = month.name[month]) %>%
+  janitor::clean_names()
+```
+
+## Join them!
+```{r}
+p2_d <-
+  left_join(p2_a,p2_b,by = c("year","month"))
+p2_final <-
+  left_join(p2_d,p2_c,by = c("year","month"))
+
+```
+
+## Descriptions for each dataset
+p2_a (based on pols-month.csv): The dataset contains `r nrow(p2_a)` observations of `r ncol(p2_a)` variables, and key variables include year, month, and president.
+
+p2_b (based on snp.csv): The dataset contains `r nrow(p2_b)` observations of `r ncol(p2_b)` variables, and key variables include year, month, and close.
+
+p2_c (based on unemployment.csv): The dataset contains `r nrow(p2_c)` observations of `r ncol(p2_c)` variables, and key variables include year, month, and unemployment.
+
+## Descriptions for the resulting dataset
+The resulting dataset contains `r nrow(p2_final)` observations of `r ncol(p2_final)` variables. The range of year is from `r min(pull(p2_final,year))` to `r max(pull(p2_final,year))`. 
+Key variables include year, month, president, close, and employment.
+
+
+# Problem 3
+
+```{r}
+p3_a <-
+  read_csv(file = "./data/Popular_Baby_Names.csv") %>%
+  janitor::clean_names() %>%
+  mutate(ethnicity = str_to_title(ethnicity),
+         gender = str_to_title(gender),
+         childs_first_name = str_to_title(childs_first_name)) %>%
+  mutate(ethnicity = replace(ethnicity, ethnicity == "Asian And Paci",
+                             "Asian And Pacific Islander")) %>%
+  mutate(ethnicity = replace(ethnicity, ethnicity == "Black Non Hisp",
+                             "Black Non Hispanic")) %>%
+  mutate(ethnicity = replace(ethnicity, ethnicity == "White Non Hisp",
+                             "White Non Hispanic")) %>%
+  distinct()
+```
+
+## How the rank in popularity of the name “Olivia” as a female baby name changes over time
+
+```{r}
+p3_Olivia <-
+  filter(p3_a, gender == "Female", childs_first_name == "Olivia") %>%
+  select(year_of_birth, ethnicity, rank)
+
+table_Olivia <-
+  pivot_wider(p3_Olivia, names_from = "year_of_birth", values_from = "rank")
+
+table_Olivia
+```
+
+## The most popular name among male children over time
+
+```{r}
+p3_male <-
+  filter(p3_a, gender == "Male", rank == 1) %>%
+  select(year_of_birth, ethnicity, childs_first_name)
+
+table_male <-
+  pivot_wider(p3_male, names_from = "year_of_birth", 
+        values_from = "childs_first_name")
+
+table_male
+```
+
+## Plot
+
+```{r}
+p3_plot <-
+  filter(p3_a, gender == "Male", year_of_birth == 2016, 
+         ethnicity == "White Non Hispanic")
+
+plot <-
+  ggplot(p3_plot, aes(rank,count)) + geom_point()
+plot
+```
+
+
+
