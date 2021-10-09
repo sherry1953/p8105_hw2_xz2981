@@ -5,7 +5,7 @@ date: "2021/10/4"
 output: github_document
 ---
 
-```{r}
+```{r message=FALSE}
 library(tidyverse)
 library(readxl)
 ```
@@ -184,6 +184,7 @@ p3_plot <-
 
 plot <-
   ggplot(p3_plot, aes(rank,count)) + geom_point()
+
 plot
 ```
 
